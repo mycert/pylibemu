@@ -425,6 +425,7 @@ cdef class Emulator:
     cdef EmuProfile emu_profile
     cdef int32_t    _offset
     cdef size_t     output_size
+    cdef c_emu_env      *_env
 
     def __cinit__(self, output_size = OUTPUT_SIZE):
         self.output_size = output_size
@@ -441,6 +442,17 @@ cdef class Emulator:
     def new(self):
         self._emu        = emu_new()
         self.emu_profile = EmuProfile(self.output_size)
+
+    def create_new_env(self):
+        self._env = emu_env_new(self._emu)
+        self._env.profile = emu_profile_new()
+
+    def profile_debug_env(self):
+        if self.emu_profile == None:
+            print emu_strerror(self._emu)
+            raise RuntimeError('	Emulator Profile error')
+
+        self.emu_profile.emu_profile_debug(self._env)
 
     def set_output_size(self, output_size):
         self.free()
@@ -562,14 +574,10 @@ cdef class Emulator:
         emu_memory_write_dword(_mem, 0x7c80ada0, 0x51ec8b55)
         emu_memory_write_byte(_mem,  0x7c814eeb, 0xc3)
 
-<<<<<<< HEAD
-        #emu_env_w32_load_dll(_env.env.win, "urlmon.dll")
-=======
         emu_env_w32_export_hook(_env, "ExitProcess", ExitProcess,  NULL)
         emu_env_w32_export_hook(_env, "ExitThread", ExitThread, NULL)
 
         emu_env_w32_load_dll(_env.env.win, "urlmon.dll")
->>>>>>> master
         emu_env_w32_export_hook(_env, "URLDownloadToFileA", URLDownloadToFile,  NULL)
 
         eipsave = 0
@@ -943,6 +951,22 @@ cdef class Emulator:
 
         return instr_string
 
+    def cpu_get_cpu_instr_string(self):
+        '''
+        Method used to disassemble the current instruction
+        
+        @rtype  : string
+        @return : disassembled current instruction
+        
+        Raises RuntimeError if the Emulator is not initialized
+        '''
+        if self._emu is NULL:
+            raise RuntimeError('Emulator not initialized')
+
+        instr_string = emu_cpu_get(self._emu).instr_string
+		
+        return instr_string
+
     # Memory methods
     def memory_write_byte(self, uint32_t addr, uint8_t byte):
         '''
@@ -1230,6 +1254,35 @@ cdef class Emulator:
 
         return True
 
-    def get_instruction(self):
-        return emu_cpu_get(self._emu).instr_string
+    def env_w32_hook_check_using_class_env(self):
+        '''
+        Method used to check if a hooked Win32 API is at the
+        current eip 
+
+        @rtype      boolean
+        @rparam     True if a hooked Win32 API is at the current
+                    eip, False otherwise
+
+        Raises RuntimeError if the Emulator is not initialized
+        '''
+        if self._env is NULL:
+            print emu_strerror(self._emu)
+            raise RuntimeError('Emulator environment error')
+
+        if emu_env_w32_eip_check(self._env) is NULL:
+            return False
+
+        return True
+
+    def env_linux_syscall_check_using_class_env(self):
+        if self._env is NULL:
+            print emu_strerror(self._emu)
+            raise RuntimeError('Emulator environment error')
+
+        #  hook = emu_env_linux_syscall_check(_env)
+        if emu_env_linux_syscall_check(self._env) is NULL:
+            return False
+        
+        return True
+
 
