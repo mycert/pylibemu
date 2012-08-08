@@ -541,7 +541,7 @@ cdef class Emulator:
         emu_memory_write_dword(_mem, 0x7c80ada0, 0x51ec8b55)
         emu_memory_write_byte(_mem,  0x7c814eeb, 0xc3)
 
-        emu_env_w32_load_dll(_env.env.win, "urlmon.dll")
+        #emu_env_w32_load_dll(_env.env.win, "urlmon.dll")
         emu_env_w32_export_hook(_env, "URLDownloadToFileA", URLDownloadToFile,  NULL)
 
         eipsave = 0
@@ -1179,3 +1179,7 @@ cdef class Emulator:
             return False
 
         return True
+
+    def get_instruction(self):
+        return emu_cpu_get(self._emu).instr_string
+
