@@ -39,6 +39,24 @@ class EMU_REGS:
     edi = 7
 
 # User hooks
+cdef uint32_t ExitProcess(c_emu_env *env, c_emu_env_hook *hook...):
+    cdef va_list args
+    cdef int exitcode
+
+    va_start(args, <void *>hook)
+    exitcode = <int>va_arg(args, int_type)
+    va_end(args)
+    return 0
+
+cdef uint32_t ExitThread(c_emu_env *env, c_emu_env_hook *hook...):
+    cdef va_list args
+    cdef int exitcode
+
+    va_start(args, <void *>hook)
+    exitcode = <int>va_arg(args, int_type)
+    va_end(args)
+    return 0
+
 cdef uint32_t URLDownloadToFile(c_emu_env *env, c_emu_env_hook *hook...):
     cdef va_list args
     cdef void   *pCaller
@@ -286,7 +304,7 @@ cdef class EmuProfile:
     cdef emu_profile_function_render_int(self, int value):
         snprintf(self.s,
                  S_SIZE,
-                 " =  %i;\n",
+                 " =  0x%x;\n",
                  value)
 
         self.concatenate(self.output, self.s, self.output_size)
@@ -507,6 +525,9 @@ cdef class Emulator:
         emu_memory_write_block(_mem, 0x0012fe98, scode, len(shellcode))
         emu_cpu_reg32_set(emu_cpu_get(self._emu), esp, 0x0012fe98)
 
+    cdef check_stop_emulation(self, c_emu_env_hook *hook):
+        return str(hook.hook.win.fnname) in ('ExitProcess', 'ExitThread', 'exit') 
+
     cpdef int test(self, steps = 1000000):
         '''
         Method used to test and emulate the shellcode. The method must be always
@@ -541,7 +562,14 @@ cdef class Emulator:
         emu_memory_write_dword(_mem, 0x7c80ada0, 0x51ec8b55)
         emu_memory_write_byte(_mem,  0x7c814eeb, 0xc3)
 
+<<<<<<< HEAD
         #emu_env_w32_load_dll(_env.env.win, "urlmon.dll")
+=======
+        emu_env_w32_export_hook(_env, "ExitProcess", ExitProcess,  NULL)
+        emu_env_w32_export_hook(_env, "ExitThread", ExitThread, NULL)
+
+        emu_env_w32_load_dll(_env.env.win, "urlmon.dll")
+>>>>>>> master
         emu_env_w32_export_hook(_env, "URLDownloadToFileA", URLDownloadToFile,  NULL)
 
         eipsave = 0
@@ -555,6 +583,9 @@ cdef class Emulator:
             if hook is not NULL:
                 if hook.hook.win.fnname is NULL:
                     logging.warning("Unhooked call to %s\n" % (hook.hook.win.fnname, ))
+                    break
+
+                if self.check_stop_emulation(hook):
                     break
             else:
                 ret = emu_cpu_parse(emu_cpu_get(self._emu))
@@ -892,6 +923,25 @@ cdef class Emulator:
 
         _cpu = emu_cpu_get(self._emu)
         emu_cpu_debugflag_unset(_cpu, flag)
+
+    def cpu_get_current_instruction(self):
+        '''
+        Method used to disassemble the current instruction
+        
+        @rtype  : string
+        @return : disassembled current instruction
+        
+        Raises RuntimeError if the Emulator is not initialized
+        '''
+        if self._emu is NULL:
+            raise RuntimeError('Emulator not initialized')
+
+        self.cpu_debugflag_set(1)
+        self.cpu_parse()
+        instr_string = emu_cpu_get(self._emu).instr_string
+        self.cpu_debugflag_unset(1)
+
+        return instr_string
 
     # Memory methods
     def memory_write_byte(self, uint32_t addr, uint8_t byte):
