@@ -1269,10 +1269,16 @@ cdef class Emulator:
             print emu_strerror(self._emu)
             raise RuntimeError('Emulator environment error')
 
-        if emu_env_w32_eip_check(self._env) is NULL:
-            return False
+        hook = emu_env_w32_eip_check(self._env) 
+        if hook is NULL:
+            return False, False
+        else:
+            fnhook = hook.hook.win.fnhook
+            if fnhook is NULL :
+                return hook.hook.win.fnname, False
+            else:
+                return hook.hook.win.fnname, True
 
-        return True
 
     def env_linux_syscall_check_using_class_env(self):
         if self._env is NULL:

@@ -288,6 +288,7 @@ cdef extern from "emu/environment/win32/emu_env_w32_dll_export.h":
     ctypedef struct c_emu_env_w32_dll_export "struct emu_env_w32_dll_export":
         char        *fnname
         uint32_t    virtualaddr
+        int32_t	    *fnhook
         void        *userdata
 
 
